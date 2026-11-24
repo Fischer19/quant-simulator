@@ -101,7 +101,7 @@ class ScenarioStudy:
     def describe(self, index):
         return {"date": self.days[index], "profile": self.profiles[index]}
 
-    def run_window(self, symbol, strategy, start, end):
+    def run_window(self, symbol, strategy, start, end, diagnostics=False):
         bars = self.bars[symbol][start : end + 1]
         if strategy == BENCHMARK:
             targets = [1] * len(bars)
@@ -112,7 +112,7 @@ class ScenarioStudy:
         equity, fills = replay(bars, targets, DEFAULT_COST)
         with_drawdown(equity)
         statistics = stats(equity, fills)
-        return {
+        result = {
             "date": self.days[start],
             "end": self.days[end],
             "path": [point["value"] - 1 for point in equity],
@@ -120,16 +120,19 @@ class ScenarioStudy:
             "drawdown": statistics["drawdown"],
             "trades": statistics["trades"],
         }
+        if diagnostics:
+            result["exposure_path"] = [point["position"] for point in equity]
+        return result
 
-    def result(self, symbol, strategy):
+    def result(self, symbol, strategy, diagnostics=False):
         if self.reference is None:
             return {"actual": None, "scenarios": []}
         end = min(self.reference + HORIZON, len(self.days) - 1)
-        actual = self.run_window(symbol, strategy, self.reference, end)
+        actual = self.run_window(symbol, strategy, self.reference, end, diagnostics)
         return {
             "actual": actual,
             "scenarios": [
-                self.run_window(symbol, strategy, index, index + HORIZON)
+                self.run_window(symbol, strategy, index, index + HORIZON, diagnostics)
                 for index, _ in self.matches
             ],
         }

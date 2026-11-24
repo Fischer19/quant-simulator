@@ -256,3 +256,22 @@ tr:hover td { background: #fafcff; }
   .scenario-table th:first-child, .scenario-table td:first-child,
   .scenario-table th:last-child, .scenario-table td:last-child { padding: 7px 5px; }
 }
+
+.policy-filters { width: fit-content; margin: 0 16px 11px; }
+.strategy-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 550; margin-top: 2px; }
+.action[data-action="MISSING"] { color: #795521; background: #fbf1de; }
+#policy-diagnostics { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+#policy-diagnostics > p, #policy-diagnostics > details { margin-top: 5px; }
+#policy-diagnostics summary { cursor: pointer; color: var(--blue); }
+#policy-diagnostics h3 { color: var(--ink); margin: 12px 0 4px; font-size: 13px; }
+.score-matrix { width: min(100%, 510px); text-align: center; table-layout: fixed; }
+.score-matrix th, .score-matrix td { padding: 5px; white-space: normal; }
+.score-matrix td { background: rgba(49, 95, 212, var(--frequency)); }
+.score-matrix td.active { outline: 2px solid #315fd4; outline-offset: -2px; }
+.score-matrix small { display: block; color: var(--muted); }
+.scenario-modes { width: fit-content; margin-top: 8px; }
+.research-table { max-height: 440px; margin-top: 12px; }
+.research-table th[scope="row"] { color: var(--ink); }
+.research-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.research-filters label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+.research-filters select { font: inherit; padding: 5px; color: var(--ink); border: 1px solid var(--border); border-radius: 5px; background: #fff; }

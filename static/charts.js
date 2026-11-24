@@ -28,9 +28,15 @@ export function strokeSeries(ctx, values, x, y, color, dash = []) {
   ctx.lineWidth = 1.7;
   ctx.setLineDash(dash);
   ctx.beginPath();
+  let connected = false;
   values.forEach((value, i) => {
-    if (i === 0) ctx.moveTo(x(i), y(value));
-    else ctx.lineTo(x(i), y(value));
+    if (!Number.isFinite(value)) {
+      connected = false;
+      return;
+    }
+    if (connected) ctx.lineTo(x(i), y(value));
+    else ctx.moveTo(x(i), y(value));
+    connected = true;
   });
   ctx.stroke();
   ctx.setLineDash([]);
@@ -125,13 +131,13 @@ export class DecisionChart {
     const x = i => left + (i + 0.5) * step;
 
     const prices = this.mode === "price";
-    const field = this.mode === "drawdown" ? "drawdown" : "value";
-    const values = this.detail.equity.slice(this.from).map(point => point[field]);
-    const baseline = this.detail.benchmark.slice(this.from).map(point => point[field]);
-    const minimum = prices ? Math.min(...bars.map(bar => bar.low)) : Math.min(...values, ...baseline);
-    const maximum = prices ? Math.max(...bars.map(bar => bar.high)) : Math.max(...values, ...baseline);
+    const allocation = this.mode === "allocation";
+    const { values, baseline } = this.comparisonSeries(this.from);
+    const series = [...values, ...baseline].filter(Number.isFinite);
+    const minimum = prices ? Math.min(...bars.map(bar => bar.low)) : allocation ? 0 : Math.min(...series);
+    const maximum = prices ? Math.max(...bars.map(bar => bar.high)) : allocation ? 1 : Math.max(...series);
     const padding = Math.max((maximum - minimum) * .1, prices ? minimum * .003 : .005);
-    const scale = gridScale(minimum - padding, maximum + padding);
+    const scale = allocation ? {low: 0, high: 1, step: .25} : gridScale(minimum - padding, maximum + padding);
     const y = value => bottom - (value - scale.low) / (scale.high - scale.low) * (bottom - top);
 
     ctx.textAlign = "right";
@@ -141,7 +147,7 @@ export class DecisionChart {
       const row = y(value);
       ctx.fillStyle = colors.axes;
       const label = prices ? "$" + Number(value.toFixed(1))
-        : this.mode === "equity" ? value.toFixed(2) : percent.format(Math.abs(value) < 1e-9 ? 0 : value);
+        : ["equity", "comparison"].includes(this.mode) ? value.toFixed(2) : percent.format(Math.abs(value) < 1e-9 ? 0 : value);
       ctx.fillText(label, left - 7, row);
       ctx.fillStyle = colors.grid;
       ctx.fillRect(left, Math.round(row) + .5, plotWidth, 1);
@@ -159,6 +165,16 @@ export class DecisionChart {
 
     if (prices) this.drawCandles(bars, x, y, step);
     else {
+      if (allocation && this.detail.number === "S17") {
+        const tints = {recovery: "#a5e6cf", bear: "#f5bdc3", bull: "#bdd3fd", other: "#e2d8f8"};
+        this.detail.decisions.slice(this.from).forEach((row, i) => {
+          const tint = tints[row.diagnostics.regime];
+          if (tint) {
+            ctx.fillStyle = tint;
+            ctx.fillRect(x(i) - step / 2, top, step + .5, 7);
+          }
+        });
+      }
       strokeSeries(ctx, baseline, x, y, colors.benchmark, [4, 4]);
       strokeSeries(ctx, values, x, y, colors.strategy);
     }
@@ -216,16 +232,29 @@ export class DecisionChart {
 
   showTooltip(index, x, width) {
     const bar = this.detail.bars[index];
-    const field = this.mode === "drawdown" ? "drawdown" : "value";
-    const format = value => this.mode === "equity" ? value.toFixed(3) : percent.format(value);
+    const {values, baseline} = this.comparisonSeries(index);
+    const format = value => value === null ? "缺失" : ["equity", "comparison"].includes(this.mode) ? value.toFixed(3) : percent.format(value);
+    const labels = this.mode === "comparison" ? ["S16", "S15"] : this.mode === "allocation" ? ["实际", "目标"] : ["策略", "买入持有"];
     const body = this.mode === "price"
       ? `开 ${usd.format(bar.open)} · 高 ${usd.format(bar.high)}<br>低 ${usd.format(bar.low)} · 收 ${usd.format(bar.close)}`
-      : `策略 ${format(this.detail.equity[index][field])} · 买入持有 ${format(this.detail.benchmark[index][field])}`;
+      : `${labels[0]} ${format(values[0])} · ${labels[1]} ${format(baseline[0])}`;
     this.tooltip.innerHTML = `<strong>${bar.date}</strong><span>${body}</span>`;
     this.tooltip.hidden = false;
     const tooltipWidth = this.tooltip.offsetWidth;
     const offset = x + 11 + tooltipWidth <= width ? x + 11 : x - tooltipWidth - 11;
     this.tooltip.style.left = `${Math.max(0, offset)}px`;
     this.tooltip.style.top = "13px";
+  }
+
+  comparisonSeries(start) {
+    if (this.mode === "comparison") {
+      return { values: this.detail.comparison.S16.values.slice(start), baseline: this.detail.comparison.S15.values.slice(start) };
+    }
+    const field = this.mode === "allocation" ? "position" : this.mode === "drawdown" ? "drawdown" : "value";
+    return {
+      values: this.detail.equity.slice(start).map(point => point[field]),
+      baseline: this.mode === "allocation" ? this.detail.decisions.slice(start).map(row => row.target)
+        : this.detail.benchmark.slice(start).map(point => point[field]),
+    };
   }
 }

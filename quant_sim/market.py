@@ -116,8 +116,8 @@ def evaluation_start(last):
     return one_year_before(last) + timedelta(days=1)
 
 
-def fetch_chart(symbol, due):
-    start = datetime.combine(PROVIDER_START, time.min, tzinfo=NEW_YORK)
+def fetch_chart(symbol, due, start_day=PROVIDER_START):
+    start = datetime.combine(start_day, time.min, tzinfo=NEW_YORK)
     end = datetime.combine(due + timedelta(days=1), time.min, tzinfo=NEW_YORK)
     params = urlencode({
         "period1": int(start.timestamp()), "period2": int(end.timestamp()),

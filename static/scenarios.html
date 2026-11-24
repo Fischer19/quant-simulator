@@ -16,6 +16,7 @@
       <nav class="header-nav" aria-label="视图">
         <a href="/">每日决策</a>
         <a href="/scenarios" aria-current="page">历史情景</a>
+        <a href="/research">研究</a>
       </nav>
       <div class="header-actions">
         <span class="status" id="status" role="status"><i></i><span>读取行情</span></span>
@@ -55,6 +56,11 @@
           </div>
         </div>
         <div id="actual" class="scenario-actual"></div>
+        <div class="segments scenario-modes" id="scenario-modes" aria-label="情景图表">
+          <button type="button" data-mode="value">收益</button>
+          <button type="button" data-mode="drawdown">回撤</button>
+          <button type="button" data-mode="exposure">实际仓位</button>
+        </div>
         <div class="scenario-body">
           <div class="scenario-graph">
             <div class="legend scenario-legend" id="legend"></div>

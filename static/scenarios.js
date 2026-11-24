@@ -8,7 +8,7 @@ const formatPercent = new Intl.NumberFormat("en-US", {
   signDisplay: "exceptZero",
 });
 const axisPercent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
-const state = { symbol: "QQQ", strategy: "benchmark", horizon: 252, version: 0 };
+const state = { symbol: "QQQ", strategy: "benchmark", horizon: 252, mode: "value", version: 0 };
 
 function text(value) {
   return String(value).replace(/[&<>"']/g, character => ({
@@ -58,13 +58,24 @@ class ScenarioChart {
     });
   }
 
-  update(result, days) {
+  update(result, days, mode) {
     this.days = days;
-    this.series = result.scenarios.map((scenario, index) => ({
-      label: scenario.date, values: scenario.path, color: colors[index],
-    }));
-    if (result.actual) {
-      this.series.push({ label: "当前回放", values: result.actual.path, color: actualColor, actual: true });
+    const valuesFor = scenario => {
+      if (mode === "exposure") return scenario.exposure_path;
+      if (mode === "drawdown") {
+        let peak = 1;
+        return scenario.path.map(value => {
+          peak = Math.max(peak, 1 + value);
+          return (1 + value) / peak - 1;
+        });
+      }
+      return scenario.path;
+    };
+    this.series = result.scenarios.map((scenario, index) => scenario.path ? ({
+      label: scenario.date, values: valuesFor(scenario), color: colors[index],
+    }) : null).filter(Boolean);
+    if (result.actual?.path) {
+      this.series.push({ label: "当前回放", values: valuesFor(result.actual), color: actualColor, actual: true });
     }
     this.cursor = null;
     this.draw();
@@ -192,8 +203,8 @@ function renderMeta() {
     <button class="scenario-symbol" type="button" data-symbol="${text(symbol)}" aria-pressed="${symbol === state.symbol}">
       <strong>${text(symbol)}</strong><span class="negative">${formatPercent.format(meta.reference.profile[symbol][0])}</span>
     </button>`).join("");
-  $("strategy").innerHTML = meta.strategies.map(([id, label]) =>
-    `<option value="${text(id)}">${text(label)}</option>`).join("");
+  $("strategy").innerHTML = meta.strategies.map(([id, label, blocked]) =>
+    `<option value="${text(id)}" ${blocked ? "disabled" : ""}>${text(label)}${blocked ? "（缺数据）" : ""}</option>`).join("");
   $("strategy").value = state.strategy;
   $("match-caption").textContent = `从 ${meta.candidate_count} 个已有完整后续一年的大跌日中，按标准化距离排序。`;
   $("method").textContent = `大跌定义为 SPY 单日跌幅至少 ${axisPercent.format(Math.abs(meta.spy_drop))}，且 QQQ 和 SOXX 同跌。对三只 ETF 各比较 1、5、20 日收益和距 20 日收盘高点的跌幅，共 12 项。各项按候选日的标准差缩放，以标准化均方根距离排序，入选日期至少相隔 ${meta.spacing} 个交易日。`;
@@ -216,29 +227,35 @@ function renderProfiles() {
 }
 
 function renderChart() {
+  $("return-title").textContent = ({value: "累计模拟收益", drawdown: "模拟回撤", exposure: "实际收盘仓位"})[state.mode];
+  $("scenario-chart").parentElement.hidden = !state.result.actual?.path && !state.result.scenarios.some(caseRow => caseRow.path);
   for (const button of $("horizons").querySelectorAll("button")) {
     button.setAttribute("aria-pressed", Number(button.dataset.days) === state.horizon);
   }
-  chart.update(state.result, state.horizon);
+  for (const button of $("scenario-modes").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", button.dataset.mode === state.mode);
+  }
+  chart.update(state.result, state.horizon, state.mode);
 }
 
 function renderResult() {
   const { actual, scenarios } = state.result;
-  $("actual").innerHTML = actual ? `
+  $("actual").innerHTML = actual?.path ? `
     <strong>当前模拟回放</strong>
     <b class="${tone(actual.return)}">${formatPercent.format(actual.return)}</b>
     <span>第 ${actual.path.length - 1} / ${state.meta.horizon} 个交易日</span>
-    <span>截至 ${text(actual.end)}</span>` : "";
-  $("legend").innerHTML = scenarios.map((scenario, index) =>
-    `<span><i style="--marker:${colors[index]}"></i>${text(scenario.date)}</span>`).join("") +
-    (actual ? '<span><i class="actual-line"></i>当前回放</span>' : "");
+    <span>截至 ${text(actual.end)}</span>${actual.missing ? `<span>缺数据 ${actual.missing} 日</span>` : ""}` : text(actual?.reason || "");
+  $("legend").innerHTML = scenarios.map((scenario, index) => scenario.path ?
+    `<span><i style="--marker:${colors[index]}"></i>${text(scenario.date)}</span>` : "").join("") +
+    (actual?.path ? '<span><i class="actual-line"></i>当前回放</span>' : "");
   $("cases").innerHTML = scenarios.map((scenario, index) => `
     <article class="scenario-case" style="--case-color:${colors[index]}">
       <header><time datetime="${text(scenario.date)}">${text(scenario.date)}</time>
         <span>距离 ${state.meta.matches[index].distance.toFixed(2)}</span></header>
-      <div class="case-result"><span>252 日收益</span>
+      ${scenario.path ? `<div class="case-result"><span>252 日收益</span>
         <strong class="${tone(scenario.return)}">${formatPercent.format(scenario.return)}</strong></div>
       <div class="case-foot"><span>最大回撤 ${formatPercent.format(scenario.drawdown)}</span><span>${scenario.trades} 笔成交</span></div>
+      ${scenario.missing ? `<div class="case-foot">缺数据 ${scenario.missing} 日</div>` : ""}` : `<div class="case-foot">${text(scenario.reason)}</div>`}
     </article>`).join("");
   renderChart();
 }
@@ -285,6 +302,12 @@ $("horizons").addEventListener("click", event => {
   const button = event.target.closest("[data-days]");
   if (!button || !state.result) return;
   state.horizon = Number(button.dataset.days);
+  renderChart();
+});
+$("scenario-modes").addEventListener("click", event => {
+  const button = event.target.closest("[data-mode]");
+  if (!button || !state.result) return;
+  state.mode = button.dataset.mode;
   renderChart();
 });
 

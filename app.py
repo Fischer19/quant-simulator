@@ -10,11 +10,15 @@ from threading import Lock
 from urllib.parse import urlsplit
 
 from quant_sim.backtest import Research
+from quant_sim.context import MarketContext, update_public
+from quant_sim.experiments import EXPERIMENTS, ROOT, run_experiments
+from quant_sim.lab import CORRECTED_BENCHMARK, Extension, PolicyLab
 from quant_sim.market import (
     DATA_DIR, NEW_YORK, SYMBOLS, DataError, csv_text, download_snapshot,
     latest_due_session, load_snapshot, save_snapshot,
 )
-from quant_sim.scenarios import CHOICES, ScenarioStudy
+from quant_sim.scenarios import CHOICES, HORIZON, ScenarioStudy
+from quant_sim.policies import REGISTRY
 
 STATIC = Path(__file__).resolve().parent / "static"
 ASSETS = {
@@ -24,6 +28,8 @@ ASSETS = {
     "/styles.css": ("styles.css", "text/css"),
     "/scenarios": ("scenarios.html", "text/html"),
     "/scenarios.js": ("scenarios.js", "text/javascript"),
+    "/research": ("research.html", "text/html"),
+    "/research.js": ("research.js", "text/javascript"),
 }
 
 
@@ -31,6 +37,7 @@ class DashboardData:
     def __init__(self, snapshot):
         self.research = Research(snapshot)
         self.study = ScenarioStudy(snapshot)
+        self.extension = Extension(PolicyLab(snapshot), snapshot)
 
 
 class Dashboard(ThreadingHTTPServer):
@@ -39,9 +46,12 @@ class Dashboard(ThreadingHTTPServer):
         self.refresh_lock = Lock()
         super().__init__(("127.0.0.1", port), Handler)
 
-    def summary(self, research):
+    def summary(self, data):
         due = latest_due_session(datetime.now(NEW_YORK)).isoformat()
-        return {**research.summary(), "expected_session": due}
+        summary = data.research.summary()
+        symbols = {symbol: {**entry, "strategies": [*entry["strategies"], *data.extension.summary[symbol]]}
+                   for symbol, entry in summary["symbols"].items()}
+        return {**summary, "symbols": symbols, "expected_session": due}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -68,20 +78,45 @@ class Handler(BaseHTTPRequestHandler):
             self.send_payload((STATIC / filename).read_bytes(), content_type)
             return
         if path == "/api/summary":
-            self.send_json(self.server.summary(research))
+            self.send_json(self.server.summary(data))
+            return
+        if path in ("/api/research", "/api/research/config"):
+            filename = ROOT / "reports/multisignal_summary.json"
+            if filename.exists():
+                summary = json.loads(filename.read_text(encoding="utf-8"))
+                if path.endswith("/config"):
+                    config = ROOT / "reports/runs" / Path(summary["run_id"]).name / "config.json"
+                    if config.is_file():
+                        self.send_payload(config.read_bytes(), "application/json", filename="config.json")
+                        return
+                else:
+                    self.send_json(summary)
+                    return
+            self.send_json({"error": "请先运行 python3 app.py --experiment all。"}, HTTPStatus.NOT_FOUND)
             return
         if path == "/api/scenarios":
             due = latest_due_session(datetime.now(NEW_YORK)).isoformat()
-            self.send_json({**data.study.summary(), "expected_session": due})
+            self.send_json({**data.study.summary(), "expected_session": due,
+                            "strategies": [*CHOICES, *data.extension.scenario_choices()]})
             return
         if path.startswith("/api/scenarios/"):
             params = path[len("/api/scenarios/") :].split("/")
             if len(params) == 2 and params[0] in SYMBOLS and params[1] in dict(CHOICES):
-                self.send_json(data.study.result(*params))
+                self.send_json(data.study.result(*params, diagnostics=True))
+                return
+            if len(params) == 2 and params[0] in SYMBOLS and (params[1] in REGISTRY or params[1] == CORRECTED_BENCHMARK):
+                if data.study.reference is None:
+                    self.send_json({"actual": None, "scenarios": []})
+                    return
+                def window(index):
+                    days = data.study.days
+                    return data.extension.lab.study_window(*params, days[index], days[min(index + HORIZON, len(days) - 1)])
+                self.send_json({"actual": window(data.study.reference),
+                                "scenarios": [window(index) for index, _ in data.study.matches]})
                 return
         if path.startswith("/api/detail/"):
             key = tuple(path[len("/api/detail/") :].split("/"))
-            detail = research.details.get(key)
+            detail = (research.details.get(key) or data.extension.detail(*key)) if len(key) == 2 else None
             if detail:
                 self.send_json(detail)
                 return
@@ -107,6 +142,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             snapshot = download_snapshot()
+            update_public(datetime.fromisoformat(snapshot["as_of"]).date())
             data = DashboardData(snapshot)
             save_snapshot(snapshot)
             self.server.data = data
@@ -115,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         finally:
             self.server.refresh_lock.release()
-        self.send_json(self.server.summary(data.research))
+        self.send_json(self.server.summary(data))
 
 
 def main():
@@ -124,14 +160,29 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--refresh", action="store_true", help="Fetch and validate a fresh daily snapshot.")
     mode.add_argument("--export-data", action="store_true", help="Write the three full-history CSVs.")
+    mode.add_argument("--update-context", action="store_true", help="Refresh VIX, ETF proxies and price prehistory.")
+    mode.add_argument("--validate-context", action="store_true", help="Print point-in-time coverage and data problems.")
+    mode.add_argument("--experiment", choices=("all", *EXPERIMENTS), help="Run a frozen local research experiment suite.")
     args = parser.parse_args()
 
     try:
         if args.refresh:
             snapshot = download_snapshot()
+            update_public(datetime.fromisoformat(snapshot["as_of"]).date())
             DashboardData(snapshot)
             save_snapshot(snapshot)
             print(f'Yahoo Finance · {snapshot["as_of"]} · snapshot saved')
+            return
+        if args.update_context:
+            result = update_public(datetime.fromisoformat(load_snapshot()["as_of"]).date())
+            print(json.dumps({"cached": list(result["series"]), "errors": result["errors"]}, ensure_ascii=False))
+            return
+        if args.validate_context:
+            context = MarketContext(load_snapshot())
+            print(json.dumps({"coverage": context.coverage(), "errors": context.errors}, ensure_ascii=False, indent=2))
+            return
+        if args.experiment:
+            print(run_experiments(load_snapshot(), args.experiment))
             return
         if args.export_data:
             snapshot = load_snapshot()

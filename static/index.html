@@ -16,6 +16,7 @@
       <nav class="header-nav" aria-label="视图">
         <a href="/" aria-current="page">每日决策</a>
         <a href="/scenarios">历史情景</a>
+        <a href="/research">研究</a>
       </nav>
       <div class="header-actions">
         <span class="status" id="status" role="status"><i></i><span>读取行情</span></span>
@@ -42,6 +43,11 @@
           <h2 id="strategies-title">策略信号</h2>
           <span id="strategy-count"></span>
         </div>
+        <div class="segments policy-filters" id="policy-filters" aria-label="筛选策略">
+          <button type="button" data-family="legacy">原有</button>
+          <button type="button" data-family="native">S11–S20</button>
+          <button type="button" data-family="proxy">代理</button>
+        </div>
         <div class="strategy-labels"><span>策略</span><span>最新</span><span>净收益</span></div>
         <div id="strategies" class="strategy-rows"></div>
         <div class="strategy-footer">
@@ -60,12 +66,15 @@
             <span class="action" id="latest-action"></span>
           </div>
           <p class="strategy-rule" id="strategy-rule"></p>
+          <p class="strategy-rule" id="policy-status" hidden></p>
           <div class="metrics" id="metrics"></div>
           <div class="chart-controls">
             <div class="segments" id="chart-modes" aria-label="选择图表">
               <button type="button" data-mode="price">日 K 线</button>
               <button type="button" data-mode="equity">净值</button>
               <button type="button" data-mode="drawdown">回撤</button>
+              <button type="button" data-mode="allocation" hidden>仓位</button>
+              <button type="button" data-mode="comparison" hidden>同分对照</button>
             </div>
             <div class="ranges" id="chart-ranges" aria-label="选择图表时间范围">
               <button type="button" data-range="22">1 月</button>
@@ -86,6 +95,7 @@
             </div>
             <div id="decision" aria-live="polite"></div>
           </section>
+          <div id="policy-diagnostics" hidden></div>
         </section>
 
         <section class="card trades" aria-labelledby="trades-title">

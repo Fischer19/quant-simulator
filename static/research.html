@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>策略研究 · 量化决策面板</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/research.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="wordmark"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i></span>量化决策面板</div>
+      <nav class="header-nav" aria-label="视图">
+        <a href="/">每日决策</a><a href="/scenarios">历史情景</a><a href="/research" aria-current="page">研究</a>
+      </nav>
+    </div>
+  </header>
+  <main class="page scenario-page">
+    <section class="intro scenario-intro">
+      <div><h1>多信号策略研究</h1><p>比较回看测试段的收益、仓位与滚动区间表现。</p></div>
+      <div class="session"><span>报告行情截至 <small>美东</small></span><strong id="report-date">—</strong></div>
+    </section>
+    <div class="alert" id="research-alert" role="status" hidden></div>
+    <div id="report-content" hidden>
+      <section class="card scenario-panel" aria-labelledby="leader-title">
+        <div class="scenario-heading">
+          <div><h2 id="leader-title">时间切分测试</h2><p id="test-range"></p></div>
+          <div class="research-filters">
+            <label>标的 <select id="report-symbol" aria-label="标的"></select></label>
+            <label>排序 <select id="report-sort" aria-label="排序">
+              <option value="policy">策略编号</option><option value="return">净收益</option>
+              <option value="drawdown">最大回撤</option><option value="fixed">匹配基准超额</option>
+            </select></label>
+          </div>
+        </div>
+        <div class="table-wrap research-table" id="leaderboard"></div>
+      </section>
+      <section class="card scenario-match" aria-labelledby="compare-title">
+        <div class="scenario-heading"><div><h2 id="compare-title">同覆盖对照</h2>
+          <p>全历史共同可用区间，日频、无调仓阈值，比较期内累计收益差。</p></div></div>
+        <div class="table-wrap research-table" id="research-comparisons"></div>
+      </section>
+      <section class="card scenario-match" aria-labelledby="coverage-title">
+        <div class="scenario-heading"><div><h2 id="coverage-title">数据覆盖</h2><p>以观察值在决策时点的可用性计算。</p></div></div>
+        <div class="table-wrap research-table" id="research-coverage"></div>
+      </section>
+      <footer class="footer"><span id="run-id"></span><a href="/api/research/config">下载该批次配置</a></footer>
+    </div>
+  </main>
+</body>
+</html>
