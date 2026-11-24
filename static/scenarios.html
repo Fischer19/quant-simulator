@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>历史情景 · 量化决策面板</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/scenarios.js" type="module"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="wordmark"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i></span>量化决策面板</div>
+      <nav class="header-nav" aria-label="视图">
+        <a href="/">每日决策</a>
+        <a href="/scenarios" aria-current="page">历史情景</a>
+      </nav>
+      <div class="header-actions">
+        <span class="status" id="status" role="status"><i></i><span>读取行情</span></span>
+        <button class="button refresh" id="refresh" type="button"><span aria-hidden="true">↻</span> 更新行情</button>
+      </div>
+    </div>
+  </header>
+  <main class="page scenario-page">
+    <div id="alert" class="alert" role="status" hidden></div>
+    <section class="intro scenario-intro" aria-labelledby="page-title">
+      <div>
+        <h1 id="page-title">历史情景</h1>
+        <p>找到与最近大跌相似的交易日，回放各自随后一年的收益。</p>
+      </div>
+      <div class="session">
+        <span>最近大跌 <small>美东</small></span>
+        <strong id="reference-date">—</strong>
+      </div>
+    </section>
+
+    <div id="scenario-content" hidden>
+      <div class="card scenario-filters">
+        <div class="scenario-symbols" id="symbols" role="group" aria-label="标的及基准日跌幅"></div>
+        <label class="scenario-select">模拟策略 <select id="strategy"></select></label>
+      </div>
+
+      <section class="card scenario-panel" aria-labelledby="return-title">
+        <div class="scenario-heading">
+          <div>
+            <h2 id="return-title">累计模拟收益</h2>
+            <p>以大跌日收盘为 T+0，下一交易日开盘模拟成交。</p>
+          </div>
+          <div class="ranges" id="horizons" role="group" aria-label="图表时间范围">
+            <button type="button" data-days="63">63 日</button>
+            <button type="button" data-days="126">126 日</button>
+            <button type="button" data-days="252">252 日</button>
+          </div>
+        </div>
+        <div id="actual" class="scenario-actual"></div>
+        <div class="scenario-body">
+          <div class="scenario-graph">
+            <div class="legend scenario-legend" id="legend"></div>
+            <div class="scenario-chart-area">
+              <canvas id="scenario-chart" tabindex="0" aria-label="累计收益图，按左右方向键可查看各交易日"></canvas>
+              <div id="scenario-tooltip" class="tooltip scenario-tooltip" hidden></div>
+            </div>
+          </div>
+          <div class="scenario-cases" id="cases" aria-label="三个历史情景的全年结果"></div>
+        </div>
+      </section>
+
+      <section class="card scenario-match" aria-labelledby="match-title">
+        <div class="scenario-heading">
+          <div><h2 id="match-title">为什么匹配这三天</h2><p id="match-caption"></p></div>
+        </div>
+        <div class="table-wrap scenario-table" id="profiles"></div>
+        <details class="scenario-method">
+          <summary>查看匹配与模拟口径</summary>
+          <p id="method"></p>
+          <p id="assumptions"></p>
+        </details>
+      </section>
+    </div>
+    <footer class="footer" id="footer"></footer>
+  </main>
+</body>
+</html>

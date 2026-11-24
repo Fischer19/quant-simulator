@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>量化决策面板</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="wordmark"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i></span>量化决策面板</div>
+      <nav class="header-nav" aria-label="视图">
+        <a href="/" aria-current="page">每日决策</a>
+        <a href="/scenarios">历史情景</a>
+      </nav>
+      <div class="header-actions">
+        <span class="status" id="status" role="status"><i></i><span>读取行情</span></span>
+        <button class="button refresh" id="refresh" type="button"><span aria-hidden="true">↻</span> 更新行情</button>
+      </div>
+    </div>
+  </header>
+  <main class="page">
+    <div id="alert" class="alert" role="status" hidden></div>
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <h1 id="page-title">每日策略决策</h1>
+        <p>收盘生成信号 · 下一交易日开盘模拟成交</p>
+      </div>
+      <div class="session">
+        <span>信号交易日 <small>美东</small></span>
+        <strong id="as-of">—</strong>
+      </div>
+    </section>
+    <nav class="market-grid" id="market" aria-label="选择 ETF"></nav>
+    <div class="workspace" id="workspace" hidden>
+      <aside class="card strategy-list" aria-labelledby="strategies-title">
+        <div class="strategy-heading">
+          <h2 id="strategies-title">策略信号</h2>
+          <span id="strategy-count"></span>
+        </div>
+        <div class="strategy-labels"><span>策略</span><span>最新</span><span>净收益</span></div>
+        <div id="strategies" class="strategy-rows"></div>
+        <div class="strategy-footer">
+          <div id="market-period"></div>
+          <a id="download" class="download" href="/api/data/QQQ.csv"><span aria-hidden="true">↓</span> 下载 QQQ 日线</a>
+        </div>
+      </aside>
+
+      <div class="detail-column">
+        <section class="card detail" aria-labelledby="strategy-title">
+          <div class="detail-heading">
+            <div>
+              <div class="detail-caption"><span id="symbol-label"></span><span>·</span><span id="strategy-group"></span></div>
+              <h2 id="strategy-title"></h2>
+            </div>
+            <span class="action" id="latest-action"></span>
+          </div>
+          <p class="strategy-rule" id="strategy-rule"></p>
+          <div class="metrics" id="metrics"></div>
+          <div class="chart-controls">
+            <div class="segments" id="chart-modes" aria-label="选择图表">
+              <button type="button" data-mode="price">日 K 线</button>
+              <button type="button" data-mode="equity">净值</button>
+              <button type="button" data-mode="drawdown">回撤</button>
+            </div>
+            <div class="ranges" id="chart-ranges" aria-label="选择图表时间范围">
+              <button type="button" data-range="22">1 月</button>
+              <button type="button" data-range="66">3 月</button>
+              <button type="button" data-range="132">6 月</button>
+              <button type="button" data-range="all">1 年</button>
+            </div>
+          </div>
+          <div class="legend" id="legend"></div>
+          <div class="chart-area" id="chart-area">
+            <canvas id="chart" tabindex="0" aria-label="策略图表。点击或按左右方向键查看交易日，按 End 键回到最新。"></canvas>
+            <div id="tooltip" class="tooltip" hidden></div>
+          </div>
+          <section class="inspect" aria-labelledby="inspect-title">
+            <div class="inspect-heading">
+              <h3 id="inspect-title">当日决策</h3>
+              <button class="text-button" id="show-latest" type="button" hidden>回到最新</button>
+            </div>
+            <div id="decision" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section class="card trades" aria-labelledby="trades-title">
+          <div class="trades-heading">
+            <div><h2 id="trades-title">模拟成交</h2><p>按下一交易日开盘价模拟</p></div>
+            <span id="trade-count"></span>
+          </div>
+          <div class="table-wrap" id="trades"></div>
+          <div class="sensitivity" id="sensitivity"></div>
+        </section>
+      </div>
+    </div>
+    <footer class="footer" id="footer"></footer>
+  </main>
+</body>
+</html>
